@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" alt="">
+    <div>
+      <h1>VPN Tab Reaper</h1>
+      <p id="statusLine">Enabled</p>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat">
+      <span id="reapedCount" class="big">0</span>
+      <span class="label">tabs reaped</span>
+    </div>
+    <div class="stat">
+      <span id="lastReap" class="mid">never</span>
+      <span class="label">last reap</span>
+    </div>
+  </section>
+
+  <section class="actions">
+    <button id="toggleBtn" class="primary">Pause</button>
+    <button id="pause5Btn">Pause 5 min</button>
+    <button id="optionsBtn">Settings</button>
+  </section>
+
+  <section class="activity">
+    <h2>Recent kills <button id="clearBtn" class="link">clear</button></h2>
+    <ul id="activityList"></ul>
+    <p id="emptyActivity">Nothing reaped yet. The AWS VPN Client's next
+      <code>127.0.0.1:35001</code> tab is toast.</p>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
