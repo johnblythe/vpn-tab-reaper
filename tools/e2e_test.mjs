@@ -181,11 +181,15 @@ await devPrivate(`chrome.developerPrivate.updateProfileConfiguration(
 const enableResult = await devPrivate(`chrome.management.setEnabled(
   ${JSON.stringify(EXT_ID)}, true, () => res(chrome.runtime.lastError ? 'ERR ' + chrome.runtime.lastError.message : 'enabled'))`);
 console.log("management.setEnabled ->", enableResult);
+// Chrome serves the extension SW from its bytecode cache — edited background.js
+// files do NOT take effect until the extension is reloaded. Force fresh code:
+await devPrivate(`chrome.developerPrivate.reload(${JSON.stringify(EXT_ID)}, res)`);
+sessions.length = 0;
 for (let i = 0; i < 80 && !sessions.length; i++) {
   if (i === 40) await send("Target.createTarget", { url: "http://127.0.0.1:4545/" }).catch(() => {});
   await sleep(100);
 }
-check("service worker running after enable", sessions.length > 0);
+check("service worker running with fresh code", sessions.length > 0);
 await sleep(800); // let init() settle
 
 check("attached to VPN Tab Reaper SW",
@@ -339,6 +343,39 @@ try {
   console.log("saved screenshots/popup.png");
 } catch (e) { console.log("screenshot skipped:", e.message); }
 await send("Target.closeTarget", { targetId: popupT.targetId }).catch(() => {});
+
+// --- T9: right-click kill list (addFinalPattern) ------------------------------------
+
+// the context-menu handler shares this message path; SW self-messages don't
+// deliver, so send it from an options page like resetExtension does
+const t9page = await send("Target.createTarget",
+  { url: `chrome-extension://${EXT_ID}/options.html` });
+await sleep(1000);
+const t9sess = (await send("Target.attachToTarget", { targetId: t9page.targetId, flatten: true })).sessionId;
+const t9result = await send("Runtime.evaluate", {
+  expression: `new Promise(r => chrome.runtime.sendMessage({type: 'addFinalPattern', url: 'http://127.0.0.1:4545/login'}, r))`,
+  awaitPromise: true, returnByValue: true
+}, t9sess);
+await send("Target.closeTarget", { targetId: t9page.targetId }).catch(() => {});
+check("T9 pattern added", t9result.result?.value?.ok === true, JSON.stringify(t9result.result?.value));
+
+const postAdd = await settings();
+check("T9 pattern persisted", postAdd.finalPatterns.includes("http://127.0.0.1:4545/*"),
+  JSON.stringify(postAdd.finalPatterns));
+
+// a page that was previously immune should now be reaped
+// (clear T4's parked 4545 tab first — retroactive kills don't happen)
+for (const t of (await tabs()).filter((t) => t.url.includes("4545"))) {
+  await ext(`chrome.tabs.remove(${t.id}).catch(()=>{})`).catch(() => {});
+}
+await send("Target.createTarget", { url: "http://127.0.0.1:4545/login" });
+await sleep(2500);
+nowTabs = await tabs();
+check("T9 previously-immune page reaped",
+  !nowTabs.some((t) => t.url.includes("4545")),
+  `pages: ${nowTabs.map((t) => t.url.slice(0, 40)).join(", ")}`);
+s = await stats();
+check("T9 stats.reaped == 5", s.reaped === 5, JSON.stringify(s));
 
 // --- wrap up -------------------------------------------------------------------------
 

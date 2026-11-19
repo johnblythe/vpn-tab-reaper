@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Right-click kill list**: context menu on any page — "VPN Tab Reaper: auto-close tabs on this site" — derives a match pattern from the page's origin, adds it to the kill list, and closes the page. Patterns remain editable on the settings page. Also exposed as an `addFinalPattern` runtime message for automation.
+
 ## [1.0.0] - 2026-11-19
 
 ### Added
@@ -14,6 +19,7 @@
 - **E2E test suite** (`tools/e2e_test.mjs`): 26 CDP-driven checks against a dedicated Chromium instance — reaping, SAML-chain safety (assertion delivered before close), login flow, focus restore, pause, badge, notification, popup UI.
 
 ### Fixed
+- **Match-pattern wildcards were broken**: `*` was never escaped before the wildcard substitution, so trailing `/*` only worked by accident (as a regex quantifier) and any pattern with a real path (e.g. `http://localhost:8095/authorization/callback`) never matched. Wildcards now work in scheme, host, and path as documented.
 - Popup "clear" no longer gets clobbered by the service worker's in-memory log (routed through a `clearLog` message).
 
 ### Known issues

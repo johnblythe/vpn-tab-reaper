@@ -59,6 +59,11 @@ A Manifest V3 extension with a background service worker that:
 5. **Stats + controls.** Kill counter, activity log, popup with
    enable/pause-5-min, options page for patterns/timing, keyboard shortcut to
    toggle pause.
+6. **Right-click kill list.** Context menu on any page adds its origin to the
+   final-callback kill list (pattern `scheme://host[:port]/*`) and closes the
+   page — so non-VPN junk tabs (e.g. hourly OAuth token-refresh callbacks
+   like an Okta flow parking on `localhost:8095/authorization/callback`) can
+   be reaped too, no pattern-writing required.
 
 ## Alternatives considered (and why not, for v1)
 
@@ -161,6 +166,12 @@ environment (`mock/server.js`):
 - **`chrome.runtime.sendMessage` from a SW does not deliver to its own
   `onMessage` listener** — the e2e reset falls back to sending from an
   extension page (options.html) target.
+- **Unpacked extension service workers are served from Chrome's SW bytecode
+  cache.** Editing `background.js` on disk does nothing until the extension
+  is reloaded (`chrome://extensions` ↻ button, or
+  `chrome.developerPrivate.reload(id)` with Developer Mode on). The manifest
+  *is* re-read, so permissions can look new while the JS stays old — very
+  confusing. The e2e suite now force-reloads after enabling.
 - Writing `chrome.storage.local` from outside the SW gets clobbered by the
   SW's next `saveState()` (in-memory copy). Route state resets through the
   extension's own `reset`/`clearLog` messages instead.

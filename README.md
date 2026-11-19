@@ -35,6 +35,9 @@ Paste this prompt into your coding agent (Claude Code, OpenCode, Cursor, …):
 
 - Closes any tab that lands on `http(s)://(127.0.0.1|localhost):35001` — the
   AWS VPN Client's local SAML listener — as soon as the page finishes loading
+- **Right-click any other junk page → "VPN Tab Reaper: auto-close tabs on this
+  site"** — adds its origin to the kill list and closes it (great for other
+  local OAuth callback tabs, e.g. token-refresh pages that keep popping open)
 - Restores the tab you were on before the junk tab appeared
 - Notifies you if an IdP sign-in page (AWS SSO, Okta, Entra, Ping) sits
   untouched for 30 seconds — your session expired, the VPN needs you
