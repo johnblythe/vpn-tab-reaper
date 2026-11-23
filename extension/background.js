@@ -77,7 +77,8 @@ function saveState() {
 // ---------------------------------------------------------------------------
 
 function esc(s) {
-  return s.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  // note: '*' must be escaped here so the wildcard replacement below sees it
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function patternToRegExp(pattern) {
@@ -194,6 +195,51 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.commands?.onCommand.addListener?.((command) => {
   if (command === "toggle-pause") toggleEnabled();
+});
+
+// ---------------------------------------------------------------------------
+// Right-click kill list: "auto-close tabs on this site"
+// ---------------------------------------------------------------------------
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "reaper-kill-site",
+      title: "VPN Tab Reaper: auto-close tabs on this site",
+      contexts: ["page"]
+    });
+  });
+});
+
+function urlToPattern(url) {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}/*`;
+  } catch {
+    return null;
+  }
+}
+
+async function addKillPatternForUrl(url) {
+  const pattern = urlToPattern(url);
+  if (!pattern) return null;
+  dbg("adding kill pattern", pattern);
+  if (!settings.finalPatterns.includes(pattern)) {
+    settings.finalPatterns.push(pattern);
+  }
+  recompile();
+  saveState();
+  let host = url;
+  try { host = new URL(url).host; } catch { /* keep raw */ }
+  notify("Site added to kill list", `Tabs on ${host} will be auto-closed (${pattern}). Remove it anytime in Settings.`);
+  return pattern;
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== "reaper-kill-site" || !tab?.url) return;
+  await addKillPatternForUrl(tab.url);
+  // The source tab's navigation events already fired, so reap it directly.
+  try { await chrome.tabs.remove(tab.id); } catch { /* already gone */ }
 });
 
 // ---------------------------------------------------------------------------
@@ -349,6 +395,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     chrome.storage.local.get(["settings", "stats", "activity"]).then((s) => {
       sendResponse(s);
     });
+    return true; // async
+  }
+  if (msg?.type === "addFinalPattern") {
+    // Shared by the context-menu handler and automation/tests.
+    addKillPatternForUrl(String(msg.url || "")).then((pattern) =>
+      sendResponse({ ok: !!pattern, pattern }));
     return true; // async
   }
   if (msg?.type === "clearLog") {
